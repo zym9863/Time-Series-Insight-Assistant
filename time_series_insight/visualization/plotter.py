@@ -6,26 +6,91 @@
 
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+import matplotlib.font_manager as fm
 import seaborn as sns
 import numpy as np
 import pandas as pd
+import platform
 from typing import Dict, Any, Optional, Tuple, List
 from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 from statsmodels.tsa.seasonal import seasonal_decompose
 import warnings
 
-# 设置中文字体
-plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'DejaVu Sans']
-plt.rcParams['axes.unicode_minus'] = False
+
+def setup_chinese_fonts():
+    """
+    设置中文字体支持
+
+    根据不同操作系统自动选择合适的中文字体
+    """
+    system = platform.system()
+
+    # 定义不同系统的中文字体列表
+    font_candidates = []
+
+    if system == "Windows":
+        font_candidates = [
+            'Microsoft YaHei',
+            'SimHei',
+            'SimSun',
+            'KaiTi',
+            'FangSong'
+        ]
+    elif system == "Darwin":  # macOS
+        font_candidates = [
+            'PingFang SC',
+            'Hiragino Sans GB',
+            'STHeiti',
+            'Arial Unicode MS'
+        ]
+    else:  # Linux
+        font_candidates = [
+            'WenQuanYi Micro Hei',
+            'WenQuanYi Zen Hei',
+            'Noto Sans CJK SC',
+            'Source Han Sans SC',
+            'DejaVu Sans'
+        ]
+
+    # 获取系统可用字体
+    available_fonts = [f.name for f in fm.fontManager.ttflist]
+
+    # 选择第一个可用的中文字体
+    selected_font = None
+    for font in font_candidates:
+        if font in available_fonts:
+            selected_font = font
+            break
+
+    # 如果没有找到中文字体，使用默认字体
+    if selected_font is None:
+        selected_font = 'DejaVu Sans'
+        print(f"警告: 未找到合适的中文字体，使用默认字体 {selected_font}")
+        print("建议安装中文字体以获得更好的显示效果")
+
+    # 设置matplotlib字体参数
+    plt.rcParams['font.sans-serif'] = [selected_font] + font_candidates
+    plt.rcParams['axes.unicode_minus'] = False
+    plt.rcParams['font.size'] = 10
+
+    # 清除字体缓存
+    plt.rcParams['font.family'] = 'sans-serif'
+
+    print(f"已设置中文字体: {selected_font}")
+    return selected_font
+
+
+# 初始化中文字体设置
+setup_chinese_fonts()
 
 
 class TimeSeriesPlotter:
     """时间序列可视化器"""
-    
+
     def __init__(self, figsize: Tuple[int, int] = (12, 8), style: str = 'seaborn-v0_8'):
         """
         初始化可视化器
-        
+
         Args:
             figsize: 图形大小
             style: 绘图风格
@@ -35,27 +100,37 @@ class TimeSeriesPlotter:
             plt.style.use(style)
         except:
             plt.style.use('default')
-        
+
         # 设置seaborn样式
         sns.set_palette("husl")
+
+        # 确保中文字体设置
+        self._ensure_chinese_fonts()
+
+    def _ensure_chinese_fonts(self):
+        """确保中文字体设置正确"""
+        setup_chinese_fonts()
         
-    def plot_time_series(self, 
-                        data: pd.Series, 
+    def plot_time_series(self,
+                        data: pd.Series,
                         title: str = "时间序列图",
                         show_trend: bool = False,
                         save_path: Optional[str] = None) -> plt.Figure:
         """
         绘制时间序列图
-        
+
         Args:
             data: 时间序列数据
             title: 图表标题
             show_trend: 是否显示趋势线
             save_path: 保存路径
-            
+
         Returns:
             matplotlib图形对象
         """
+        # 确保中文字体设置
+        self._ensure_chinese_fonts()
+
         fig, ax = plt.subplots(figsize=self.figsize)
         
         # 绘制时间序列
@@ -86,7 +161,7 @@ class TimeSeriesPlotter:
         
         return fig
     
-    def plot_acf_pacf(self, 
+    def plot_acf_pacf(self,
                      data: pd.Series,
                      lags: int = 20,
                      alpha: float = 0.05,
@@ -94,40 +169,45 @@ class TimeSeriesPlotter:
                      save_path: Optional[str] = None) -> plt.Figure:
         """
         绘制ACF和PACF图
-        
+
         Args:
             data: 时间序列数据
             lags: 滞后阶数
             alpha: 置信水平
             title: 图表标题
             save_path: 保存路径
-            
+
         Returns:
             matplotlib图形对象
         """
+        # 确保中文字体设置
+        self._ensure_chinese_fonts()
+
         fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(self.figsize[0], self.figsize[1]*1.2))
-        
+
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            
-            # 绘制ACF
-            plot_acf(data, lags=lags, alpha=alpha, ax=ax1, title='自相关函数 (ACF)')
-            ax1.set_xlabel('滞后阶数')
-            ax1.set_ylabel('自相关系数')
+
+            # 绘制ACF - 不使用默认标题，后面手动设置
+            plot_acf(data, lags=lags, alpha=alpha, ax=ax1, title=None)
+            ax1.set_title('自相关函数 (ACF)', fontsize=14, fontweight='bold')
+            ax1.set_xlabel('滞后阶数', fontsize=12)
+            ax1.set_ylabel('自相关系数', fontsize=12)
             ax1.grid(True, alpha=0.3)
-            
-            # 绘制PACF
-            plot_pacf(data, lags=lags, alpha=alpha, ax=ax2, title='偏自相关函数 (PACF)')
-            ax2.set_xlabel('滞后阶数')
-            ax2.set_ylabel('偏自相关系数')
+
+            # 绘制PACF - 不使用默认标题，后面手动设置
+            plot_pacf(data, lags=lags, alpha=alpha, ax=ax2, title=None)
+            ax2.set_title('偏自相关函数 (PACF)', fontsize=14, fontweight='bold')
+            ax2.set_xlabel('滞后阶数', fontsize=12)
+            ax2.set_ylabel('偏自相关系数', fontsize=12)
             ax2.grid(True, alpha=0.3)
-        
+
         fig.suptitle(title, fontsize=16, fontweight='bold')
         plt.tight_layout()
-        
+
         if save_path:
             plt.savefig(save_path, dpi=300, bbox_inches='tight')
-        
+
         return fig
     
     def plot_decomposition(self, 
@@ -162,24 +242,28 @@ class TimeSeriesPlotter:
             
             # 原始数据
             axes[0].plot(data.index, data.values, linewidth=1.5)
-            axes[0].set_title('原始数据')
+            axes[0].set_title('原始数据', fontsize=12, fontweight='bold')
+            axes[0].set_ylabel('数值', fontsize=10)
             axes[0].grid(True, alpha=0.3)
-            
+
             # 趋势
             axes[1].plot(decomposition.trend.index, decomposition.trend.values, linewidth=1.5, color='orange')
-            axes[1].set_title('趋势')
+            axes[1].set_title('趋势', fontsize=12, fontweight='bold')
+            axes[1].set_ylabel('趋势值', fontsize=10)
             axes[1].grid(True, alpha=0.3)
-            
+
             # 季节性
             axes[2].plot(decomposition.seasonal.index, decomposition.seasonal.values, linewidth=1.5, color='green')
-            axes[2].set_title('季节性')
+            axes[2].set_title('季节性', fontsize=12, fontweight='bold')
+            axes[2].set_ylabel('季节值', fontsize=10)
             axes[2].grid(True, alpha=0.3)
-            
+
             # 残差
             axes[3].plot(decomposition.resid.index, decomposition.resid.values, linewidth=1.5, color='red')
-            axes[3].set_title('残差')
+            axes[3].set_title('残差', fontsize=12, fontweight='bold')
+            axes[3].set_ylabel('残差值', fontsize=10)
             axes[3].grid(True, alpha=0.3)
-            axes[3].set_xlabel('时间')
+            axes[3].set_xlabel('时间', fontsize=10)
             
             fig.suptitle(title, fontsize=16, fontweight='bold')
             plt.tight_layout()
@@ -412,13 +496,19 @@ class TimeSeriesPlotter:
             ax2 = plt.subplot(n_plots, 2, 3)
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                plot_acf(acf_pacf_data, lags=20, ax=ax2, title='ACF')
+                plot_acf(acf_pacf_data, lags=20, ax=ax2, title=None)
+                ax2.set_title('自相关函数 (ACF)', fontsize=12, fontweight='bold')
+                ax2.set_xlabel('滞后阶数', fontsize=10)
+                ax2.set_ylabel('自相关系数', fontsize=10)
                 ax2.grid(True, alpha=0.3)
-            
+
             ax3 = plt.subplot(n_plots, 2, 4)
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                plot_pacf(acf_pacf_data, lags=20, ax=ax3, title='PACF')
+                plot_pacf(acf_pacf_data, lags=20, ax=ax3, title=None)
+                ax3.set_title('偏自相关函数 (PACF)', fontsize=12, fontweight='bold')
+                ax3.set_xlabel('滞后阶数', fontsize=10)
+                ax3.set_ylabel('偏自相关系数', fontsize=10)
                 ax3.grid(True, alpha=0.3)
         
         # 3. 残差诊断（如果提供了残差）
@@ -429,16 +519,17 @@ class TimeSeriesPlotter:
             ax4 = plt.subplot(n_plots, 2, start_row*2-1)
             ax4.plot(residuals.index, residuals.values, linewidth=1)
             ax4.axhline(y=0, color='r', linestyle='--', alpha=0.8)
-            ax4.set_title('残差时间序列')
-            ax4.set_ylabel('残差')
+            ax4.set_title('残差时间序列', fontsize=12, fontweight='bold')
+            ax4.set_ylabel('残差', fontsize=10)
+            ax4.set_xlabel('时间', fontsize=10)
             ax4.grid(True, alpha=0.3)
-            
+
             # 残差直方图
             ax5 = plt.subplot(n_plots, 2, start_row*2)
             ax5.hist(residuals.dropna(), bins=20, density=True, alpha=0.7, edgecolor='black')
-            ax5.set_title('残差分布')
-            ax5.set_xlabel('残差值')
-            ax5.set_ylabel('密度')
+            ax5.set_title('残差分布', fontsize=12, fontweight='bold')
+            ax5.set_xlabel('残差值', fontsize=10)
+            ax5.set_ylabel('密度', fontsize=10)
             ax5.grid(True, alpha=0.3)
         
         plt.suptitle('时间序列分析综合报告', fontsize=16, fontweight='bold')

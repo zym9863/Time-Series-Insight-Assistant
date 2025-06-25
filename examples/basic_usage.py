@@ -102,7 +102,7 @@ def example_2_file_analysis():
     from sample_data import generate_arima_data
     
     # 创建数据目录
-    data_dir = Path("examples/data")
+    data_dir = Path("data")
     data_dir.mkdir(exist_ok=True)
     
     # 生成数据
@@ -149,7 +149,7 @@ def example_3_visualization():
     
     # 生成图表
     print("\n1. 生成可视化图表...")
-    output_dir = Path("examples/output")
+    output_dir = Path("output")
     output_dir.mkdir(exist_ok=True)
     
     plots_info = tsi.plot_analysis(
@@ -220,7 +220,7 @@ def example_5_export_results():
     tsi = example_1_basic_analysis()
     
     # 创建输出目录
-    output_dir = Path("examples/output")
+    output_dir = Path("output")
     output_dir.mkdir(exist_ok=True)
     
     # 导出JSON格式
