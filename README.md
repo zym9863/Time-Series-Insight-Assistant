@@ -1,3 +1,5 @@
+[English](README_EN.md) | [中文](README.md)
+
 # 时间序列洞察助手 (Time Series Insight Assistant)
 
 🔍 **智能的时间序列分析工具** - 提供自动模型识别、参数估计和可视化诊断功能
