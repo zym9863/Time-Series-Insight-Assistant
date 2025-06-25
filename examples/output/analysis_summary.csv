@@ -1,0 +1,2 @@
+﻿data_info,stationarity,differencing
+"{'length': 200, 'start': '2020-01-01 00:00:00', 'end': '2020-07-18 00:00:00', 'mean': 64.45853299190041, 'std': 17.442926529697022}","{'is_stationary': False, 'interpretation': '综合判断：结果不一致，建议进一步分析'}","{'applied': True, 'order': 1}"
