@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "time-series-insight-assistant"
-version = "0.1.0"
+version = "0.1.1"
 description = "一个智能的时间序列分析助手，提供自动模型识别、参数估计和可视化诊断功能"
 readme = "README.md"
 requires-python = ">=3.9"
