@@ -1,3 +1,5 @@
+[中文](README.md) | [English](README_EN.md)
+
 # Time Series Insight Assistant (时间序列洞察助手)
 
 🔍 **Intelligent Time Series Analysis Tool** - Provides automatic model identification, parameter estimation, and visualization diagnostics
@@ -45,6 +47,24 @@ tsia quick-check data.csv
 tsia --help
 ```
 
+### FastAPI Service Usage
+
+```bash
+# Start development server
+python scripts/start_dev.py
+# Or
+./scripts/start.sh
+
+# Start production server
+python scripts/start_prod.py
+# Or
+./scripts/start.sh prod
+
+# Access API docs
+# Swagger UI: http://localhost:8000/docs
+# ReDoc: http://localhost:8000/redoc
+```
+
 ### Python API Usage
 
 ```python
@@ -64,6 +84,40 @@ print(forecast['forecast'])
 
 # Generate visualization charts
 tsi.plot_analysis(save_dir='output/')
+```
+
+### FastAPI Service API Usage
+
+```python
+import requests
+
+# API base URL
+BASE_URL = "http://localhost:8000/api/v1"
+
+# Upload data file
+with open('data.csv', 'rb') as f:
+    files = {'file': f}
+    data = {'date_column': 'date', 'value_column': 'value'}
+    response = requests.post(f"{BASE_URL}/upload/file", files=files, data=data)
+    upload_result = response.json()
+    file_id = upload_result["file_id"]
+
+# Run analysis
+analysis_request = {
+    "auto_diff": True,
+    "max_p": 5,
+    "max_q": 5,
+    "n_models": 3
+}
+response = requests.post(f"{BASE_URL}/analysis/{file_id}", json=analysis_request)
+analysis_result = response.json()
+analysis_id = analysis_result["analysis_id"]
+
+# Make prediction
+prediction_request = {"steps": 10, "alpha": 0.05}
+response = requests.post(f"{BASE_URL}/analysis/{analysis_id}/predict", json=prediction_request)
+prediction_result = response.json()
+print(f"Forecast values: {prediction_result['forecast_values']}")
 ```
 
 ## 📖 Core Features

@@ -47,6 +47,24 @@ tsia quick-check data.csv
 tsia --help
 ```
 
+### FastAPI服务使用
+
+```bash
+# 启动开发服务器
+python scripts/start_dev.py
+# 或使用
+./scripts/start.sh
+
+# 启动生产服务器
+python scripts/start_prod.py
+# 或使用
+./scripts/start.sh prod
+
+# 访问API文档
+# Swagger UI: http://localhost:8000/docs
+# ReDoc: http://localhost:8000/redoc
+```
+
 ### Python API使用
 
 ```python
@@ -66,6 +84,40 @@ print(forecast['forecast'])
 
 # 生成可视化图表
 tsi.plot_analysis(save_dir='output/')
+```
+
+### FastAPI服务API使用
+
+```python
+import requests
+
+# API基础URL
+BASE_URL = "http://localhost:8000/api/v1"
+
+# 上传数据文件
+with open('data.csv', 'rb') as f:
+    files = {'file': f}
+    data = {'date_column': 'date', 'value_column': 'value'}
+    response = requests.post(f"{BASE_URL}/upload/file", files=files, data=data)
+    upload_result = response.json()
+    file_id = upload_result["file_id"]
+
+# 执行分析
+analysis_request = {
+    "auto_diff": True,
+    "max_p": 5,
+    "max_q": 5,
+    "n_models": 3
+}
+response = requests.post(f"{BASE_URL}/analysis/{file_id}", json=analysis_request)
+analysis_result = response.json()
+analysis_id = analysis_result["analysis_id"]
+
+# 进行预测
+prediction_request = {"steps": 10, "alpha": 0.05}
+response = requests.post(f"{BASE_URL}/analysis/{analysis_id}/predict", json=prediction_request)
+prediction_result = response.json()
+print(f"预测值: {prediction_result['forecast_values']}")
 ```
 
 ## 📖 核心功能
