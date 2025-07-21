@@ -120,7 +120,53 @@ prediction_result = response.json()
 print(f"预测值: {prediction_result['forecast_values']}")
 ```
 
-## 📖 核心功能
+## � Docker 部署
+
+### 快速部署
+
+使用Docker可以快速部署FastAPI服务，无需复杂的环境配置：
+
+```bash
+# 方法一：使用部署脚本（推荐）
+chmod +x scripts/docker-deploy.sh
+./scripts/docker-deploy.sh --build --run
+
+# 方法二：使用Docker Compose
+docker-compose up --build -d
+
+# Windows PowerShell
+.\scripts\docker-deploy.ps1 -Build -Run
+```
+
+### 验证部署
+
+```bash
+# 检查服务状态
+curl http://localhost:8000/health
+
+# 访问API文档
+open http://localhost:8000/docs
+```
+
+### 高级部署选项
+
+```bash
+# 包含Redis缓存
+./scripts/docker-deploy.sh --run --with-redis
+
+# 包含PostgreSQL数据库
+./scripts/docker-deploy.sh --run --with-db
+
+# 查看日志
+./scripts/docker-deploy.sh --logs
+
+# 停止服务
+./scripts/docker-deploy.sh --stop
+```
+
+详细的Docker部署指南请参考：[Docker部署文档](docs/DOCKER_DEPLOYMENT.md)
+
+## �📖 核心功能
 
 ### 1. 模型自动识别与可视化诊断
 

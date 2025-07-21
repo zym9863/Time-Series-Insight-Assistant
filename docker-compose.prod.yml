@@ -1,0 +1,90 @@
+version: '3.8'
+
+# 生产环境 Docker Compose 配置
+# 使用方法: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+services:
+  time-series-api:
+    build:
+      target: production
+    environment:
+      - UVICORN_WORKERS=8
+      - UVICORN_LOG_LEVEL=warning
+      - PYTHONOPTIMIZE=1
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '2.0'
+        reservations:
+          memory: 1G
+          cpus: '1.0'
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  # Nginx 反向代理
+  nginx:
+    image: nginx:alpine
+    container_name: time-series-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - time-series-api
+    restart: unless-stopped
+
+  # 生产级Redis配置
+  redis:
+    image: redis:7-alpine
+    container_name: time-series-redis-prod
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_prod_data:/data
+    restart: unless-stopped
+    profiles:
+      - with-redis
+
+  # 生产级PostgreSQL配置
+  postgres:
+    image: postgres:15-alpine
+    container_name: time-series-postgres-prod
+    environment:
+      POSTGRES_DB: timeseries_prod
+      POSTGRES_USER: timeseries_user
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    secrets:
+      - db_password
+    restart: unless-stopped
+    profiles:
+      - with-db
+
+volumes:
+  redis_prod_data:
+    driver: local
+  postgres_prod_data:
+    driver: local
+
+secrets:
+  db_password:
+    file: ./secrets/db_password.txt
+
+networks:
+  default:
+    name: time-series-prod-network
+    driver: bridge

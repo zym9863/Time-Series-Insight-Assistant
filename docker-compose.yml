@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  time-series-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: time-series-insight-api
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONPATH=/app
+      - UVICORN_HOST=0.0.0.0
+      - UVICORN_PORT=8000
+      - UVICORN_WORKERS=4
+    volumes:
+      # 持久化数据目录
+      - ./data:/app/data:ro
+      - ./uploads:/app/uploads
+      - ./outputs:/app/outputs
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+
+  # 可选：添加Redis用于缓存（如果需要）
+  redis:
+    image: redis:7-alpine
+    container_name: time-series-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    profiles:
+      - with-redis
+
+  # 可选：添加PostgreSQL数据库（如果需要）
+  postgres:
+    image: postgres:15-alpine
+    container_name: time-series-postgres
+    environment:
+      POSTGRES_DB: timeseries
+      POSTGRES_USER: timeseries_user
+      POSTGRES_PASSWORD: your_password_here
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    profiles:
+      - with-db
+
+volumes:
+  redis_data:
+  postgres_data:
+
+networks:
+  default:
+    name: time-series-network
