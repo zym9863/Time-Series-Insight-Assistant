@@ -2,7 +2,31 @@
 
 本文档介绍如何使用Docker部署时间序列洞察助手FastAPI服务。
 
-## 📋 前提条件
+## � 预构建镜像
+
+### GitHub Packages (推荐)
+
+```bash
+# 拉取最新版本
+docker pull ghcr.io/zym9863/time-series-insight-assistant:latest
+
+# 运行容器
+docker run -p 8000:8000 ghcr.io/zym9863/time-series-insight-assistant:latest
+```
+
+### Docker Hub
+
+```bash
+# 拉取最新版本（需要替换为实际的Docker Hub用户名）
+docker pull [dockerhub-username]/time-series-insight-assistant:latest
+
+# 运行容器
+docker run -p 8000:8000 [dockerhub-username]/time-series-insight-assistant:latest
+```
+
+> **注意**: 如果您想使用预构建的镜像，请查看 [GitHub Actions 设置指南](./GITHUB_ACTIONS_SETUP.md) 了解如何配置自动构建和发布。
+
+## �📋 前提条件
 
 - Docker >= 20.10
 - Docker Compose >= 2.0
@@ -318,6 +342,73 @@ tar -czf backup-$(date +%Y%m%d).tar.gz uploads outputs logs
 
 # 备份数据库（如果使用PostgreSQL）
 docker exec time-series-postgres pg_dump -U timeseries_user timeseries > backup.sql
+```
+
+## 🤖 自动化部署
+
+### CI/CD 集成
+
+本项目支持通过GitHub Actions自动构建和发布Docker镜像：
+
+- **自动构建**: 每次推送到main/develop分支时自动构建
+- **多平台支持**: 支持linux/amd64和linux/arm64架构
+- **多注册表**: 同时发布到GitHub Packages和Docker Hub
+- **安全扫描**: 自动进行容器安全扫描
+- **版本管理**: 支持语义化版本标签
+
+详细设置请参考：[GitHub Actions 设置指南](./GITHUB_ACTIONS_SETUP.md)
+
+### 使用预构建镜像部署
+
+#### 使用Docker Compose
+
+```yaml
+version: '3.8'
+
+services:
+  app:
+    image: ghcr.io/zym9863/time-series-insight-assistant:latest
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=production
+    volumes:
+      - ./uploads:/app/uploads
+      - ./outputs:/app/outputs
+      - ./logs:/app/logs
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - app
+    restart: unless-stopped
+```
+
+#### 快速部署命令
+
+```bash
+# 使用最新版本
+docker run -d \
+  --name time-series-insight \
+  -p 8000:8000 \
+  -v $(pwd)/uploads:/app/uploads \
+  -v $(pwd)/outputs:/app/outputs \
+  -v $(pwd)/logs:/app/logs \
+  ghcr.io/zym9863/time-series-insight-assistant:latest
+
+# 使用特定版本
+docker run -d \
+  --name time-series-insight \
+  -p 8000:8000 \
+  -v $(pwd)/uploads:/app/uploads \
+  -v $(pwd)/outputs:/app/outputs \
+  -v $(pwd)/logs:/app/logs \
+  ghcr.io/zym9863/time-series-insight-assistant:v1.0.0
 ```
 
 ## 📞 技术支持

@@ -1,0 +1,217 @@
+name: Docker Publish
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  # GitHub Packages Registry
+  REGISTRY_GITHUB: ghcr.io
+  # Docker Hub Registry
+  REGISTRY_DOCKER: docker.io
+  # Image name
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      # This is used to complete the identity challenge
+      # with sigstore/fulcio when running outside of PRs.
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Login to GitHub Container Registry
+      - name: Log into GitHub Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY_GITHUB }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Login to Docker Hub
+      - name: Log into Docker Hub
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY_DOCKER }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # Extract metadata (tags, labels) for Docker
+      - name: Extract metadata for GitHub Packages
+        id: meta-github
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY_GITHUB }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Extract metadata for Docker Hub
+        id: meta-docker
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY_DOCKER }}/${{ secrets.DOCKERHUB_USERNAME }}/time-series-insight-assistant
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      # Build and push Docker image to GitHub Packages
+      - name: Build and push to GitHub Packages
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          target: production
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta-github.outputs.tags }}
+          labels: ${{ steps.meta-github.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            BUILDKIT_INLINE_CACHE=1
+
+      # Build and push Docker image to Docker Hub
+      - name: Build and push to Docker Hub
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          target: production
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta-docker.outputs.tags }}
+          labels: ${{ steps.meta-docker.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            BUILDKIT_INLINE_CACHE=1
+
+      # Run security scan
+      - name: Run Trivy vulnerability scanner
+        if: github.event_name != 'pull_request'
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY_GITHUB }}/${{ env.IMAGE_NAME }}:${{ steps.meta-github.outputs.version }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      # Upload security scan results
+      - name: Upload Trivy scan results to GitHub Security tab
+        if: github.event_name != 'pull_request'
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  # Test the built image
+  test-image:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log into GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY_GITHUB }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Test Docker image
+        run: |
+          # Pull the image
+          docker pull ${{ env.REGISTRY_GITHUB }}/${{ env.IMAGE_NAME }}:latest
+          
+          # Run the container
+          docker run -d --name test-container -p 8000:8000 \
+            ${{ env.REGISTRY_GITHUB }}/${{ env.IMAGE_NAME }}:latest
+          
+          # Wait for the service to start
+          sleep 30
+          
+          # Test health endpoint
+          curl -f http://localhost:8000/health || exit 1
+          
+          # Test API endpoint
+          curl -f http://localhost:8000/docs || exit 1
+          
+          # Stop and remove container
+          docker stop test-container
+          docker rm test-container
+
+  # Create release notes
+  create-release:
+    needs: [build-and-push, test-image]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          body: |
+            ## Docker Images
+            
+            ### GitHub Packages
+            ```bash
+            docker pull ${{ env.REGISTRY_GITHUB }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
+            ```
+            
+            ### Docker Hub
+            ```bash
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/time-series-insight-assistant:${{ github.ref_name }}
+            ```
+            
+            ## Quick Start
+            
+            ```bash
+            # Using GitHub Packages
+            docker run -p 8000:8000 ${{ env.REGISTRY_GITHUB }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}
+            
+            # Using Docker Hub
+            docker run -p 8000:8000 ${{ secrets.DOCKERHUB_USERNAME }}/time-series-insight-assistant:${{ github.ref_name }}
+            ```
+            
+            Access the API documentation at: http://localhost:8000/docs
+          draft: false
+          prerelease: false
