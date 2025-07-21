@@ -17,8 +17,8 @@ env:
   REGISTRY_GITHUB: ghcr.io
   # Docker Hub Registry
   REGISTRY_DOCKER: docker.io
-  # Image name
-  IMAGE_NAME: ${{ github.repository }}
+  # Image name (lowercase for Docker registry compatibility)
+  IMAGE_NAME: ${{ github.repository_owner }}/time-series-insight-assistant
 
 jobs:
   build-and-push:
